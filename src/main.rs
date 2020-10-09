@@ -1,10 +1,12 @@
 mod cache;
-mod cache_metrics;
-mod hash_cache;
 
-use cache::Cache;
-use cache_metrics::CacheMetrics;
-use hash_cache::HashCache;
+use cache::{
+    Cache,
+    cache_metrics::{CacheMetrics},
+    hash_cache::{HashCache}
+};
+
+use std::{thread, time};
 
 fn main() {
     let mut cache = CacheMetrics::with(HashCache::new());
@@ -21,6 +23,9 @@ fn main() {
 
 fn do_something_expensive(key: &u32) -> String {
     println!("hit cache");
+    let ten_millis = time::Duration::from_millis(1000);
+
+    thread::sleep(ten_millis);
     format!("poop {}", key)
 }
 
