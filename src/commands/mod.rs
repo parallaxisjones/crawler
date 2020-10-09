@@ -24,4 +24,8 @@ pub(crate) struct Opt {
     /// Output file
     #[structopt(short, long, parse(from_os_str))]
     output: PathBuf,
+
+    /// admin_level to consider
+    #[structopt(short, long)]
+    url: Vec<String>,
 }
