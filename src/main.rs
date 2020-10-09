@@ -1,5 +1,7 @@
 mod cache;
+mod commands;
 
+use structopt::StructOpt;
 use cache::{
     Cache,
     cache_metrics::{CacheMetrics},
@@ -9,6 +11,8 @@ use cache::{
 use std::{thread, time};
 
 fn main() {
+    let opt = commands::Opt::from_args();
+    println!("{:#?}", opt);
     let mut cache = CacheMetrics::with(HashCache::new());
     let key = 5;
     do_something(&mut cache, key);

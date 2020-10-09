@@ -9,6 +9,7 @@ edition = "2018"
 [dependencies]
 futures = "0.3"
 reqwest = { version = "0.10.8", features = ["blocking"]}
+structopt = "0.3"
 select = "0.5.0"
 tokio = { version = "0.2", features = ["macros"] }
 tokio-postgres = { version = "0.5", features = ["with-uuid-0_8"] }
