@@ -70,13 +70,14 @@ async fn app(opt: Opt, cache: &mut impl Cache<String, Site>) -> Result<()> {
 }
 
 fn main() {
+
     let opt = commands::Opt::from_args();
     println!("{:#?}", opt);
     let mut cache = CacheMetrics::with(HashCache::new());
     let mut rt = tokio::runtime::Runtime::new().unwrap();
 
     match rt.block_on(app(opt, &mut cache)) {
-        Ok(_) => info!("Done"),
-        Err(e) => error!("An error ocurred: {}", e),
+        Ok(_) => println!("OK"),
+        Err(e) => println!("err: {}", e),
     };
 }
