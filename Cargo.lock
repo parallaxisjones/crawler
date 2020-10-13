@@ -204,6 +204,7 @@ dependencies = [
  "structopt",
  "tokio",
  "tokio-postgres",
+ "url",
 ]
 
 [[package]]

@@ -1,32 +1,17 @@
 extern crate serde;
 extern crate serde_xml_rs;
+extern crate sitemap;
 // use reqwest::Url;
 // use std::str::FromStr;
-#[derive(Deserialize, Debug)]
-struct UrlSet {
-    name: String,
-    #[serde(rename="layer")]
-    layers: Vec<Layer>,
-}
 
-#[derive(Deserialize, Debug)]
-struct Layer {
-    content_type: String,
-    count: u8,
-    data: Vec<Data>,
-}
+use sitemap::structs::UrlEntry;
+// use sitemap::structs::{ChangeFreq,LastMod};
+use crate::cache::Cache;
+use crate::commands::Opt;
 
-#[derive(Deserialize, Debug)]
-struct Data {
-    id: u8,
-    #[serde(rename="$value")]
-    content: String,
-}
-
-#[derive(Deserialize, Debug)]
+#[derive(Debug)]
 pub(crate) struct Sitemap {
-    pub url: String,
-    pub name: String,
+    entries: Vec<UrlEntry>,
 }
 
 pub(crate) fn sitemap_format(domain: String) -> String {
@@ -34,36 +19,79 @@ pub(crate) fn sitemap_format(domain: String) -> String {
 }
 
 impl Sitemap {
-    pub fn new(url: String) -> Sitemap {
-        Sitemap { url: url, name: "".to_string() }
+    // pub fn get<Site: std::iter::FromIterator<Site>>(&mut self, map: impl Fn(String) -> Site) -> &Site {
+    //     &self.entries.into_iter()
+    // }
+    pub fn new(urls: Vec<UrlEntry>) -> Sitemap {
+        Sitemap { entries: urls }
     }
 }
-
+#[derive(Debug)]
 pub(crate) struct Site { 
-    domain: String, 
-    urls: Vec<String> 
+    sitemap: Sitemap 
 }
 
 // This should follow the same convention as the cache
 // where it's 
+
 impl Site {
-    pub fn new(url: &str, links: Vec<String>) -> Site {
-        Site { domain: url.to_string(), urls: links }
+    pub fn new(sitemap: Sitemap) -> Site {
+        Site { sitemap }
     }
+}
+pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
-    pub fn build_sitemap(&self) {
-        // let sitemap_url = format!("{}/sitemap.xml", key);
-        // println!("request for {}", sitemap_url);
-        // &self.cache.insert_if_missing(&key, );
-        "fail".to_string();
+pub(crate) async fn app(opt: Opt, cache: &mut impl Cache<String, Site>) -> Result<()> {
+    for path in opt.url {
+        // Copy each path into a new string
+        // that can be consumed/captured by the task closure
+        let path = path.clone();
+        let sitemap_url = &sitemap_format(path.clone());
+
+        match reqwest::get(sitemap_url).await {
+            Ok(resp) => {
+                match resp.text().await {
+                    Ok(text) => {
+                        cache.get_or_insert(&sitemap_url, move |_| {
+                            let mut urls: Vec<UrlEntry> = Vec::new();
+                            let doc = roxmltree::Document::parse(&text).unwrap();
+                            for node in doc.descendants()
+                            .filter(|n| { n.has_tag_name("url") }) {
+                                for nn in node.descendants() {
+                                    //todo: #1 flush this out so we capture the whole sitemap url object
+                                    // if nn.is_element() && nn.has_tag_name("changefreq") {
+                                    //     let link = nn.text().unwrap().to_string();
+                                    //     url_link = url_link.changefreq(ChangeFreq::from(link));
+                                    // }
+                                    
+                                    // if nn.is_element() && nn.has_tag_name("lastmod") {
+                                    //     let link = nn.text().unwrap();
+                                    //     let last_mod = LastMod::from(link.to_string());
+                                    //     url_link = url_link.lastmod(last_mod.get_time().unwrap());
+                                    // }
+                                    if nn.is_element() && nn.has_tag_name("loc") {
+                                        let link = nn.text().unwrap();
+                                        let built = UrlEntry::builder()
+                                        .loc(link.to_string())
+                                        .build().unwrap();
+                                        urls.push(built);
+                                    }
+                                }
+                            }
+                            let sitemap = Sitemap::new(urls);
+                            let s = Site::new(sitemap);
+                        //todo: this should take a whole representation of a url object
+                            s
+                        });
+                        // jf_site.build_sitemap();
+                    }
+                    Err(_) => println!("ERROR reading {}", path),
+                }
+            },
+            Err(_) => println!("ERROR downloading {}", path),
+        }
+        let cached = cache.get(sitemap_url).unwrap();
+        println!("GOT FROM CACHE: {:?}", cached);
     }
-
-    // pub fn get_sitemap(&mut self) -> Sitemap {
-    //     let domain = self.domain.to_string();
-    //     let url = &sitemap_format(domain);
-    //     Sitemap::new(url.to_string())
-    // }
-    // pub fn get_sitemap_url(&mut self) -> String {
-    //     sitemap_format(self.domain.to_string())
-    // }
+    Ok(())
 }
